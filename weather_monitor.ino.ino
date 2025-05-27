@@ -1,12 +1,46 @@
+
 #include <TFT_eSPI.h>
+#include <ArduinoJson.h>
+#include <HTTPClient.h>
 #include <WiFi.h>
+
 #include "secrets.h"
 
 TFT_eSPI tft = TFT_eSPI();
+HTTPClient http;
 
-const int reconnect_delay = 10;
+const int RECONNECT_DELAY = 10;
+const int HTTP_SUCCESS = 200;
 
-void setup() {
+const String URL_GET_LOCATION = "http://ip-api.com/json/";
+
+bool getLocation(float& lat, float& lon) 
+{
+  http.begin(URL_GET_LOCATION);
+
+  int httpCode = http.GET();
+
+  if (httpCode != HTTP_SUCCESS) {
+    http.end();
+    return false;
+  }
+
+  String payload = http.getString();
+
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, payload);
+
+  if(error) return false;
+
+  lat = doc["lat"];
+  lon = doc["lon"];
+
+  http.end();
+  return true;
+}
+
+void setup() 
+{
   Serial.begin(115200);
   delay(1000);
 
@@ -29,7 +63,7 @@ void setup() {
     delay(1000);
     tft.print(".");
 
-    if(curr_connection_attempt >= reconnect_delay)
+    if(curr_connection_attempt >= RECONNECT_DELAY)
     {
       tft.println("");
       curr_connection_attempt = 0;
@@ -43,10 +77,24 @@ void setup() {
   tft.print("IP Address: ");
   tft.println(WiFi.localIP());
 
+  float lat = 0;
+  float lon = 0;
+
+  if(!getLocation(lat,lon))
+  {
+    tft.println("Error getting location");
+  }
+  else
+  {
+    String location = "Lat: " + String(lat) + ", Lon: " + String(lon);
+    tft.println(location);
+  }
+
   tft.unloadFont();
 }
 
-void loop() {
+void loop() 
+{
   // put your main code here, to run repeatedly:
 
 }
